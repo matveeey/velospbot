@@ -20,4 +20,4 @@ services:
       - ./nginx_config.conf:/etc/nginx/nginx.conf
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
-      - ./html:/var/www/html
+      
