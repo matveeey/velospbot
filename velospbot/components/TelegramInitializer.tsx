@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-export default function TelegramStyles() {
+export default function TelegramInitializer() {
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-web-app.js';
