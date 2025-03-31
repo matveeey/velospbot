@@ -29,6 +29,7 @@ interface LocationTrackingResult {
   stats: Stats;
   locationHistory: LocationData[];
   resetRoute: () => void;
+  isLoading: boolean;
 }
 
 export function useLocationTracking(): LocationTrackingResult {
@@ -44,6 +45,7 @@ export function useLocationTracking(): LocationTrackingResult {
   });
   const watchId = useRef<number | null>(null);
   const startTime = useRef<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Вычисление расстояния между двумя точками
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -94,6 +96,7 @@ export function useLocationTracking(): LocationTrackingResult {
 
   const startTracking = async () => {
     try {
+      setIsLoading(true);
       const permissionResult = await navigator.permissions.query({ name: 'geolocation' });
       
       if (permissionResult.state === 'granted') {
@@ -107,6 +110,7 @@ export function useLocationTracking(): LocationTrackingResult {
           (error) => {
             setError(`Геолокация недоступна: ${error.message}`);
             setIsTracking(false);
+            setIsLoading(false);
           },
           { enableHighAccuracy: true }
         );
@@ -114,6 +118,7 @@ export function useLocationTracking(): LocationTrackingResult {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
       setIsTracking(false);
+      setIsLoading(false);
     }
   };
 
@@ -121,6 +126,7 @@ export function useLocationTracking(): LocationTrackingResult {
     startTime.current = Date.now();
     watchId.current = navigator.geolocation.watchPosition(
       (position) => {
+        setIsLoading(false);
         const locationData: LocationData = {
           coords: {
             latitude: position.coords.latitude,
@@ -142,6 +148,7 @@ export function useLocationTracking(): LocationTrackingResult {
       (error) => {
         setError(`Ошибка отслеживания: ${error.message}`);
         setIsTracking(false);
+        setIsLoading(false);
       },
       {
         enableHighAccuracy: true,
@@ -186,6 +193,7 @@ export function useLocationTracking(): LocationTrackingResult {
     isTracking,
     stats,
     locationHistory,
-    resetRoute
+    resetRoute,
+    isLoading
   };
 } 

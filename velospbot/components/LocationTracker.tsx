@@ -33,25 +33,9 @@ export default function LocationTracker() {
     isTracking,
     stats,
     locationHistory,
-    resetRoute
+    resetRoute,
+    isLoading
   } = useLocationTracking();
-
-  useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      const webApp = window.Telegram.WebApp;
-      webApp.ready();
-      webApp.MainButton.setText(isTracking ? 'Остановить' : 'Начать');
-      webApp.MainButton.show();
-      
-      webApp.MainButton.onClick(() => {
-        if (isTracking) {
-          stopTracking();
-        } else {
-          startTracking();
-        }
-      });
-    }
-  }, [isTracking]);
 
   const defaultPosition: [number, number] = [55.7558, 37.6173];
   const currentPosition: [number, number] = currentLocation 
@@ -77,6 +61,7 @@ export default function LocationTracker() {
         onStop={stopTracking}
         onReset={resetRoute}
         hasHistory={locationHistory.length > 0}
+        isLoading={isLoading}
       />
 
       {error && (
