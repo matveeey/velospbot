@@ -24,7 +24,6 @@ const Map = dynamic(() => import('./Map'), {
 
 export default function LocationTracker() {
   const {
-    hasPermission,
     error,
     currentLocation,
     startTracking,
@@ -49,23 +48,7 @@ export default function LocationTracker() {
     }
   }, [isTracking]);
 
-  if (!hasPermission) {
-    return (
-      <div style={{ color: 'var(--tg-theme-text-color)' }}>
-        Для работы трекера необходим доступ к геолокации
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ color: 'var(--tg-theme-destructive-text-color)' }}>
-        {error}
-      </div>
-    );
-  }
-
-  const defaultPosition: [number, number] = [55.7558, 37.6173]; // Москва
+  const defaultPosition: [number, number] = [55.7558, 37.6173];
   const currentPosition: [number, number] = currentLocation 
     ? [currentLocation.coords.latitude, currentLocation.coords.longitude]
     : defaultPosition;
@@ -77,19 +60,43 @@ export default function LocationTracker() {
     }}>
       <Map center={currentPosition} isTracking={isTracking} />
       
-      <h2 style={{ marginBottom: '1rem' }}>
-        Статус: {isTracking ? 'Отслеживание' : 'Остановлено'}
-      </h2>
-      {currentLocation && (
-        <div>
-          <p>Широта: {currentLocation.coords.latitude.toFixed(6)}</p>
-          <p>Долгота: {currentLocation.coords.longitude.toFixed(6)}</p>
-          <p>Точность: {currentLocation.coords.accuracy.toFixed(1)}м</p>
-          {currentLocation.coords.speed && (
-            <p>Скорость: {(currentLocation.coords.speed * 3.6).toFixed(1)} км/ч</p>
-          )}
-        </div>
-      )}
+      <button 
+        onClick={() => isTracking ? stopTracking() : startTracking()}
+        style={{
+          backgroundColor: isTracking ? 'var(--tg-theme-destructive-color)' : 'var(--tg-theme-button-color)',
+          color: 'var(--tg-theme-button-text-color)',
+          padding: '0.5rem 1rem',
+          border: 'none',
+          borderRadius: '0.5rem',
+          width: '100%',
+          marginBottom: '1rem',
+          cursor: 'pointer',
+          fontSize: '1rem'
+        }}
+      >
+        {isTracking ? 'Остановить' : 'Начать отслеживание'}
+      </button>
+
+      <div style={{ marginTop: '1rem' }}>
+        <h2 style={{ marginBottom: '1rem' }}>
+          Статус: {isTracking ? 'Отслеживание' : 'Остановлено'}
+        </h2>
+        {error && (
+          <p style={{ color: 'var(--tg-theme-destructive-text-color)', marginBottom: '1rem' }}>
+            {error}
+          </p>
+        )}
+        {currentLocation && (
+          <div>
+            <p>Широта: {currentLocation.coords.latitude.toFixed(6)}</p>
+            <p>Долгота: {currentLocation.coords.longitude.toFixed(6)}</p>
+            <p>Точность: {currentLocation.coords.accuracy.toFixed(1)}м</p>
+            {currentLocation.coords.speed && (
+              <p>Скорость: {(currentLocation.coords.speed * 3.6).toFixed(1)} км/ч</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

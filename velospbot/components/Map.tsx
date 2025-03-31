@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -16,14 +16,17 @@ const icon = L.icon({
 
 interface LocationUpdateProps {
   center: [number, number];
+  isTracking: boolean;
 }
 
-function LocationUpdater({ center }: LocationUpdateProps) {
+function LocationUpdater({ center, isTracking }: LocationUpdateProps) {
   const map = useMap();
   
   useEffect(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
+    if (isTracking) {
+      map.setView(center, 17, { animate: true });
+    }
+  }, [center, map, isTracking]);
 
   return null;
 }
@@ -40,14 +43,18 @@ export default function Map({ center, isTracking }: MapProps) {
         center={center}
         zoom={16}
         style={{ height: '100%', width: '100%' }}
+        zoomControl={false}
+        dragging={true}
+        touchZoom={true}
+        doubleClickZoom={true}
       >
+        <ZoomControl position="bottomright" />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <Marker position={center} icon={icon}>
-        </Marker>
-        <LocationUpdater center={center} />
+        <Marker position={center} icon={icon} />
+        <LocationUpdater center={center} isTracking={isTracking} />
       </MapContainer>
     </div>
   );
