@@ -1,5 +1,5 @@
 services:
-  app:
+  velospbot:
     build:
       ./velospbot
     ports:
@@ -10,3 +10,14 @@ services:
       - ./velospbot:/velospbot
       - /velospbot/node_modules # 'volume mount'
     command: npm run dev
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./nginx_config.conf:/etc/nginx/nginx.conf
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+      - ./html:/var/www/html
