@@ -1,7 +1,7 @@
 'use client'
 
-import UserProfile from '@/components/UserProfile';
+import LocationTracker from '@/components/LocationTracker';
 
 export default function HomePage() {
-  return <UserProfile />;
+  return <LocationTracker />;
 } 
