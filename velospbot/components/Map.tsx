@@ -1,18 +1,17 @@
 'use client'
 
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, ZoomControl, Polyline } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
-// Фикс для иконок маркеров
-const icon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+import { useEffect, useRef } from 'react';
+import Map from 'ol/Map';
+import View from 'ol/View';
+import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
+import OSM from 'ol/source/OSM';
+import { fromLonLat } from 'ol/proj';
+import { Feature } from 'ol';
+import { Point, LineString } from 'ol/geom';
+import { Style, Stroke, Circle, Fill } from 'ol/style';
+import 'ol/ol.css';
 
 interface MapProps {
   center: [number, number];
@@ -20,48 +19,103 @@ interface MapProps {
   locationHistory: Array<{coords: {latitude: number; longitude: number}}>;
 }
 
-function LocationUpdater({ center, isTracking }: { center: [number, number]; isTracking: boolean }) {
-  const map = useMap();
-  
+export default function MapComponent({ center, isTracking, locationHistory }: MapProps) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const vectorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+
   useEffect(() => {
-    if (isTracking) {
-      map.setView(center, 17, { animate: true });
+    if (!mapRef.current) return;
+
+    // Создаем слой для маркеров и линий
+    const vectorSource = new VectorSource();
+    const vectorLayer = new VectorLayer({
+      source: vectorSource,
+      style: new Style({
+        stroke: new Stroke({
+          color: '#0066ff',
+          width: 3
+        }),
+        image: new Circle({
+          radius: 7,
+          fill: new Fill({ color: '#0066ff' }),
+          stroke: new Stroke({
+            color: '#fff',
+            width: 2
+          })
+        })
+      })
+    });
+    vectorLayerRef.current = vectorLayer;
+
+    // Создаем карту
+    const map = new Map({
+      target: mapRef.current,
+      layers: [
+        new TileLayer({
+          source: new OSM()
+        }),
+        vectorLayer
+      ],
+      view: new View({
+        center: fromLonLat([center[1], center[0]]),
+        zoom: 16
+      })
+    });
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.setTarget(undefined);
+    };
+  }, []);
+
+  // Обновляем позицию и маршрут при изменении данных
+  useEffect(() => {
+    if (!mapInstanceRef.current || !vectorLayerRef.current) return;
+
+    const vectorSource = vectorLayerRef.current.getSource();
+    if (!vectorSource) return;
+
+    // Очищаем предыдущие объекты
+    vectorSource.clear();
+
+    // Добавляем текущую позицию
+    const currentPoint = new Feature({
+      geometry: new Point(fromLonLat([center[1], center[0]]))
+    });
+    vectorSource.addFeature(currentPoint);
+
+    // Добавляем линию маршрута
+    if (locationHistory.length > 1) {
+      const coordinates = locationHistory.map(loc => 
+        fromLonLat([loc.coords.longitude, loc.coords.latitude])
+      );
+      const routeLine = new Feature({
+        geometry: new LineString(coordinates)
+      });
+      vectorSource.addFeature(routeLine);
     }
-  }, [center, map, isTracking]);
 
-  return null;
-}
-
-export default function Map({ center, isTracking, locationHistory }: MapProps) {
-  const positions = locationHistory.map(loc => [loc.coords.latitude, loc.coords.longitude] as [number, number]);
+    // Центрируем карту на текущей позиции при отслеживании
+    if (isTracking) {
+      mapInstanceRef.current.getView().animate({
+        center: fromLonLat([center[1], center[0]]),
+        duration: 500
+      });
+    }
+  }, [center, locationHistory, isTracking]);
 
   return (
-    <div style={{ height: '60vh', width: '100%', marginBottom: '1rem' }}>
-      <MapContainer
-        center={center}
-        zoom={16}
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={false}
-        dragging={true}
-        touchZoom={true}
-        doubleClickZoom={true}
-      >
-        <ZoomControl position="bottomright" />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={center} icon={icon} />
-        {positions.length > 1 && (
-          <Polyline 
-            positions={positions}
-            color="blue"
-            weight={3}
-            opacity={0.7}
-          />
-        )}
-        <LocationUpdater center={center} isTracking={isTracking} />
-      </MapContainer>
-    </div>
+    <div 
+      ref={mapRef} 
+      style={{ 
+        height: '60vh', 
+        width: '100%', 
+        marginBottom: '1rem',
+        borderRadius: '12px',
+        overflow: 'hidden'
+      }}
+    />
   );
 } 
