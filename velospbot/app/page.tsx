@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from "react";
-import WebApp from "@twa-dev/sdk";
 
 interface UserData {
   id: number;
@@ -13,20 +12,35 @@ interface UserData {
 }
 
 export default function Home() {
-  const [userData, setUserData] = useState<UserData | null>(null)
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (WebApp.initDataUnsafe.user) {
-      setUserData(WebApp.initDataUnsafe.user as UserData)
-    }
+    const initTelegramApp = async () => {
+      try {
+        const WebAppModule = await import("@twa-dev/sdk");
+        const WebApp = WebAppModule.default;
+        
+        if (WebApp.initDataUnsafe.user) {
+          setUserData(WebApp.initDataUnsafe.user as UserData);
+        }
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error initializing Telegram Web App:", error);
+        setIsLoading(false);
+      }
+    };
+
+    initTelegramApp();
   }, [])
 
   return (
     <main className="p-4">
-      {
-        userData ?
-        (
-          <>
+      {isLoading ? (
+        <>Loading...</>
+      ) : userData ? (
+        <>
           <h1 className="test-2x1 font-bold mb4">User Data</h1>
           <ul>
             <li>ID: {userData.id}</li>
@@ -36,12 +50,10 @@ export default function Home() {
             <li>Language Code: {userData.language_code}</li>
             <li>Is Premium: {userData.is_premium ? 'Yes' : 'No'}</li>
           </ul>
-          </>
-        ) :
-        (
-          <>Loading...</>
-        )
-      }
+        </>
+      ) : (
+        <>No user data available</>
+      )}
     </main>
   );
 }
