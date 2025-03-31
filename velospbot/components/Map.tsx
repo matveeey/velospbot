@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, ZoomControl, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -14,12 +14,13 @@ const icon = L.icon({
   iconAnchor: [12, 41],
 });
 
-interface LocationUpdateProps {
+interface MapProps {
   center: [number, number];
   isTracking: boolean;
+  locationHistory: Array<{coords: {latitude: number; longitude: number}}>;
 }
 
-function LocationUpdater({ center, isTracking }: LocationUpdateProps) {
+function LocationUpdater({ center, isTracking }: { center: [number, number]; isTracking: boolean }) {
   const map = useMap();
   
   useEffect(() => {
@@ -31,12 +32,9 @@ function LocationUpdater({ center, isTracking }: LocationUpdateProps) {
   return null;
 }
 
-interface MapProps {
-  center: [number, number];
-  isTracking: boolean;
-}
+export default function Map({ center, isTracking, locationHistory }: MapProps) {
+  const positions = locationHistory.map(loc => [loc.coords.latitude, loc.coords.longitude] as [number, number]);
 
-export default function Map({ center, isTracking }: MapProps) {
   return (
     <div style={{ height: '60vh', width: '100%', marginBottom: '1rem' }}>
       <MapContainer
@@ -54,6 +52,14 @@ export default function Map({ center, isTracking }: MapProps) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <Marker position={center} icon={icon} />
+        {positions.length > 1 && (
+          <Polyline 
+            positions={positions}
+            color="blue"
+            weight={3}
+            opacity={0.7}
+          />
+        )}
         <LocationUpdater center={center} isTracking={isTracking} />
       </MapContainer>
     </div>

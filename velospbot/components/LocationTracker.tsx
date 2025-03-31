@@ -3,6 +3,8 @@
 import { useLocationTracking } from '@/hooks/useLocationTracking';
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import StatsCard from './StatsCard';
+import TrackingControls from './TrackingControls';
 
 // Динамический импорт карты (без SSR)
 const Map = dynamic(() => import('./Map'), {
@@ -28,7 +30,10 @@ export default function LocationTracker() {
     currentLocation,
     startTracking,
     stopTracking,
-    isTracking
+    isTracking,
+    stats,
+    locationHistory,
+    resetRoute
   } = useLocationTracking();
 
   useEffect(() => {
@@ -58,45 +63,31 @@ export default function LocationTracker() {
       padding: '1rem',
       color: 'var(--tg-theme-text-color)'
     }}>
-      <Map center={currentPosition} isTracking={isTracking} />
+      <Map 
+        center={currentPosition} 
+        isTracking={isTracking} 
+        locationHistory={locationHistory}
+      />
       
-      <button 
-        onClick={() => isTracking ? stopTracking() : startTracking()}
-        style={{
-          backgroundColor: isTracking ? 'var(--tg-theme-destructive-color)' : 'var(--tg-theme-button-color)',
-          color: 'var(--tg-theme-button-text-color)',
-          padding: '0.5rem 1rem',
-          border: 'none',
-          borderRadius: '0.5rem',
-          width: '100%',
-          marginBottom: '1rem',
-          cursor: 'pointer',
-          fontSize: '1rem'
-        }}
-      >
-        {isTracking ? 'Остановить' : 'Начать отслеживание'}
-      </button>
+      <StatsCard stats={stats} />
+      
+      <TrackingControls 
+        isTracking={isTracking}
+        onStart={startTracking}
+        onStop={stopTracking}
+        onReset={resetRoute}
+        hasHistory={locationHistory.length > 0}
+      />
 
-      <div style={{ marginTop: '1rem' }}>
-        <h2 style={{ marginBottom: '1rem' }}>
-          Статус: {isTracking ? 'Отслеживание' : 'Остановлено'}
-        </h2>
-        {error && (
-          <p style={{ color: 'var(--tg-theme-destructive-text-color)', marginBottom: '1rem' }}>
-            {error}
-          </p>
-        )}
-        {currentLocation && (
-          <div>
-            <p>Широта: {currentLocation.coords.latitude.toFixed(6)}</p>
-            <p>Долгота: {currentLocation.coords.longitude.toFixed(6)}</p>
-            <p>Точность: {currentLocation.coords.accuracy.toFixed(1)}м</p>
-            {currentLocation.coords.speed && (
-              <p>Скорость: {(currentLocation.coords.speed * 3.6).toFixed(1)} км/ч</p>
-            )}
-          </div>
-        )}
-      </div>
+      {error && (
+        <div style={{ 
+          color: 'var(--tg-theme-destructive-text-color)',
+          marginTop: '1rem',
+          textAlign: 'center'
+        }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 } 
