@@ -1,7 +1,6 @@
 'use client'
 
 import { useLocationTracking } from '@/hooks/useLocationTracking';
-import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import StatsCard from './StatsCard';
 import TrackingControls from './TrackingControls';
@@ -59,8 +58,6 @@ export default function LocationTracker() {
         isTracking={isTracking}
         onStart={startTracking}
         onStop={stopTracking}
-        onReset={resetRoute}
-        hasHistory={locationHistory.length > 0}
         isLoading={isLoading}
       />
 
@@ -75,4 +72,4 @@ export default function LocationTracker() {
       )}
     </div>
   );
-} 
+}
