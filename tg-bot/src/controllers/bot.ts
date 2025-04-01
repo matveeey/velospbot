@@ -17,11 +17,8 @@ export function setupBot(bot: Telegraf<MyContext>) {
   bot.start((ctx) => {
     ctx.reply(
       'Привет! Я бот для отслеживания геолокации.\n\n' +
-      'Чтобы воспользоваться приложением, пожалуйста, отправьте мне вашу Live Location (Живую геопозицию):\n\n' +
-      '1. Нажмите на скрепку (📎) внизу слева\n' +
-      '2. Выберите "Геопозиция" (📍)\n' +
-      '3. Установите максимальное время и нажмите "Отправить геопозицию"\n\n' +
-      'После этого вы можете открыть мини-приложение и видеть себя на карте.'
+      'Чтобы воспользоваться приложением, пожалуйста, отправьте мне трансляцию геопозиции.\n' +
+      'Желательно выбрать максимальной время трансляции.\n'
     );
   });
 
@@ -47,18 +44,14 @@ export function setupBot(bot: Telegraf<MyContext>) {
     // Different responses for regular vs live location
     if (!location.live_period) {
       ctx.reply(
-        '✅ Геолокация получена (одноразово).\n\n' +
-        '❗️ Рекомендуется использовать Live Location (Живую геопозицию) для автоматического обновления:\n' +
-        '1. Нажмите на скрепку (📎)\n' +
-        '2. Выберите "Геопозиция" (📍)\n' +
-        '3. Включите "LIVE на ХХ:ХХ" внизу справа\n' +
-        '4. Нажмите "Отправить геопозицию"'
+        'Вы отправили одноразовую геопозицию.\n' +
+        'Для корректной работы сервиса необходимо использовать Трансляцию геопозиции.'
       );
     } else {
       ctx.reply(
-        '✅ Live Location активирована!\n\n' +
-        '🔄 Ваша геопозиция будет обновляться автоматически.\n\n' +
-        '📱 Теперь вы можете открыть мини-приложение для просмотра на карте.'
+        'Трансляция активирована!\n\n' +
+        'Ваша геопозиция будет обновляться автоматически.\n\n' +
+        'Теперь вы можете открыть мини-приложение для просмотра на карте.'
       );
     }
   });
@@ -106,7 +99,7 @@ export function setupBot(bot: Telegraf<MyContext>) {
       const date = new Date(lastLocation.timestamp);
       const timeSince = Math.floor((Date.now() - lastLocation.timestamp) / 1000 / 60);
       
-      let message = '📍 Статус геолокации\n\n';
+      let message = 'Статус геолокации\n\n';
       message += `Последняя геопозиция получена: ${date.toLocaleString()}\n`;
       message += `(${timeSince} мин. назад)\n\n`;
       message += `Координаты: ${lastLocation.latitude}, ${lastLocation.longitude}`;
@@ -114,7 +107,7 @@ export function setupBot(bot: Telegraf<MyContext>) {
       ctx.reply(message);
     } else {
       ctx.reply(
-        '❌ У вас еще нет сохраненной геопозиции.\n\n' +
+        'У вас еще нет сохраненной геопозиции.\n\n' +
         'Пожалуйста, отправьте Live Location (Живую геопозицию), чтобы начать отслеживание.'
       );
     }
@@ -124,12 +117,12 @@ export function setupBot(bot: Telegraf<MyContext>) {
   bot.command('clear', (ctx) => {
     const userId = ctx.from?.id.toString() || '';
     Location.clearLocationHistory(userId);
-    ctx.reply('✅ История геолокаций очищена.');
+    ctx.reply('История геолокаций очищена.');
   });
 
   // Error handler
   bot.catch((err, ctx) => {
     console.error(`Error for ${ctx.updateType}:`, err);
-    ctx.reply('❌ Произошла ошибка при обработке запроса.');
+    ctx.reply('Произошла ошибка при обработке запроса.');
   });
 }
