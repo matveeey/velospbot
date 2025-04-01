@@ -1,4 +1,4 @@
-import { Telegraf } from 'telegraf';
+import { Context, Telegraf } from 'telegraf';
 import { Location, LocationData } from '../models/location';
 import { MyContext } from '../types';
 
@@ -13,17 +13,33 @@ interface LocationMessage {
 }
 
 export function setupBot(bot: Telegraf<MyContext>) {
+  // Set up bot commands menu
+  bot.telegram.setMyCommands([
+    { command: 'start', description: 'Начать использование бота' },
+    { command: 'help', description: 'Получить помощь по использованию' },
+    { command: 'status', description: 'Проверить статус геолокации' },
+    { command: 'clear', description: 'Очистить историю локаций' }
+  ]);
+
   // Welcome message handler
-  bot.start((ctx) => {
+  bot.start((ctx: MyContext) => {
     ctx.reply(
       'Привет! Я бот для отслеживания геолокации.\n\n' +
       'Чтобы воспользоваться приложением, пожалуйста, отправьте мне трансляцию геопозиции.\n' +
-      'Желательно выбрать максимальной время трансляции.\n'
+      'Желательно выбрать максимальной время трансляции.',
+      {
+        reply_markup: {
+          keyboard: [
+            [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+          ],
+          resize_keyboard: true
+        }
+      }
     );
   });
 
   // Handle incoming location
-  bot.on('location', (ctx) => {
+  bot.on('location', (ctx: MyContext) => {
     const userId = ctx.from?.id.toString() || '';
     const message = ctx.message as unknown as LocationMessage;
     const location = message.location;
@@ -45,19 +61,94 @@ export function setupBot(bot: Telegraf<MyContext>) {
     if (!location.live_period) {
       ctx.reply(
         'Вы отправили одноразовую геопозицию.\n' +
-        'Для корректной работы сервиса необходимо использовать Трансляцию геопозиции.'
+        'Для корректной работы сервиса необходимо использовать Трансляцию геопозиции.',
+        {
+          reply_markup: {
+            keyboard: [
+              [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+            ],
+            resize_keyboard: true
+          }
+        }
       );
     } else {
       ctx.reply(
         'Трансляция активирована!\n\n' +
         'Ваша геопозиция будет обновляться автоматически.\n\n' +
-        'Теперь вы можете открыть мини-приложение для просмотра на карте.'
+        'Теперь вы можете открыть мини-приложение для просмотра на карте.',
+        {
+          reply_markup: {
+            keyboard: [
+              [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+            ],
+            resize_keyboard: true
+          }
+        }
       );
     }
   });
 
+  // Handle text messages for menu buttons
+  bot.hears('Статус', (ctx: MyContext) => {
+    const userId = ctx.from?.id.toString() || '';
+    const lastLocation = Location.getLastLocation(userId);
+
+    if (lastLocation) {
+      const date = new Date(lastLocation.timestamp);
+      const timeSince = Math.floor((Date.now() - lastLocation.timestamp) / 1000 / 60);
+      
+      let message = 'Статус геолокации\n\n';
+      message += `Последняя геопозиция получена: ${date.toLocaleString()}\n`;
+      message += `(${timeSince} мин. назад)\n\n`;
+      message += `Координаты: ${lastLocation.latitude}, ${lastLocation.longitude}`;
+      
+      ctx.reply(message, {
+        reply_markup: {
+          keyboard: [
+            [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+          ],
+          resize_keyboard: true
+        }
+      });
+    } else {
+      ctx.reply(
+        'У вас еще нет сохраненной геопозиции.\n\n' +
+        'Пожалуйста, отправьте Live Location (Живую геопозицию), чтобы начать отслеживание.',
+        {
+          reply_markup: {
+            keyboard: [
+              [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+            ],
+            resize_keyboard: true
+          }
+        }
+      );
+    }
+  });
+  
+  bot.hears('Помощь', (ctx: MyContext) => {
+    ctx.reply(
+      'Как пользоваться ботом:\n\n' +
+      '1. Отправьте мне вашу Live Location (Живую геопозицию)\n' +
+      '2. Откройте мини-приложение, чтобы увидеть вашу позицию на карте\n\n' +
+      'Команды:\n' +
+      '/help - Показать эту помощь\n' +
+      '/status - Проверить статус отслеживания\n' +
+      '/clear - Очистить историю локаций\n\n' +
+      'Для точного отслеживания используйте Live Location (Живую геопозицию)',
+      {
+        reply_markup: {
+          keyboard: [
+            [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+          ],
+          resize_keyboard: true
+        }
+      }
+    );
+  });
+
   // Handle live location updates
-  bot.on('edited_message', (ctx) => {
+  bot.on('edited_message', (ctx: MyContext) => {
     if (ctx.editedMessage && 'location' in ctx.editedMessage) {
       const userId = ctx.from?.id.toString() || '';
       const location = ctx.editedMessage.location;
@@ -77,7 +168,7 @@ export function setupBot(bot: Telegraf<MyContext>) {
   });
 
   // Help command
-  bot.help((ctx) => {
+  bot.help((ctx: MyContext) => {
     ctx.reply(
       'Как пользоваться ботом:\n\n' +
       '1. Отправьте мне вашу Live Location (Живую геопозицию)\n' +
@@ -86,12 +177,20 @@ export function setupBot(bot: Telegraf<MyContext>) {
       '/help - Показать эту помощь\n' +
       '/status - Проверить статус отслеживания\n' +
       '/clear - Очистить историю локаций\n\n' +
-      '📍 Для точного отслеживания используйте Live Location (Живую геопозицию)'
+      'Для точного отслеживания используйте Live Location (Живую геопозицию)',
+      {
+        reply_markup: {
+          keyboard: [
+            [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+          ],
+          resize_keyboard: true
+        }
+      }
     );
   });
 
   // Status command
-  bot.command('status', (ctx) => {
+  bot.command('status', (ctx: MyContext) => {
     const userId = ctx.from?.id.toString() || '';
     const lastLocation = Location.getLastLocation(userId);
 
@@ -104,24 +203,60 @@ export function setupBot(bot: Telegraf<MyContext>) {
       message += `(${timeSince} мин. назад)\n\n`;
       message += `Координаты: ${lastLocation.latitude}, ${lastLocation.longitude}`;
       
-      ctx.reply(message);
+      ctx.reply(message, {
+        reply_markup: {
+          keyboard: [
+            [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+          ],
+          resize_keyboard: true
+        }
+      });
     } else {
       ctx.reply(
         'У вас еще нет сохраненной геопозиции.\n\n' +
-        'Пожалуйста, отправьте Live Location (Живую геопозицию), чтобы начать отслеживание.'
+        'Пожалуйста, отправьте Live Location (Живую геопозицию), чтобы начать отслеживание.',
+        {
+          reply_markup: {
+            keyboard: [
+              [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+            ],
+            resize_keyboard: true
+          }
+        }
       );
     }
   });
 
   // Clear location history command
-  bot.command('clear', (ctx) => {
+  bot.command('clear', (ctx: MyContext) => {
     const userId = ctx.from?.id.toString() || '';
     Location.clearLocationHistory(userId);
-    ctx.reply('История геолокаций очищена.');
+    ctx.reply('История геолокаций очищена.', {
+      reply_markup: {
+        keyboard: [
+          [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+        ],
+        resize_keyboard: true
+      }
+    });
+  });
+
+  // Connect text button handlers to commands
+  bot.hears('Очистить историю', (ctx: MyContext) => {
+    const userId = ctx.from?.id.toString() || '';
+    Location.clearLocationHistory(userId);
+    ctx.reply('История геолокаций очищена.', {
+      reply_markup: {
+        keyboard: [
+          [{ text: 'Статус' }, { text: 'Помощь' }, { text: 'Очистить историю' }]
+        ],
+        resize_keyboard: true
+      }
+    });
   });
 
   // Error handler
-  bot.catch((err, ctx) => {
+  bot.catch((err: unknown, ctx: MyContext) => {
     console.error(`Error for ${ctx.updateType}:`, err);
     ctx.reply('Произошла ошибка при обработке запроса.');
   });
