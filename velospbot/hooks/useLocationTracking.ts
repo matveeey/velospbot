@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import axios from 'axios';
 
 interface LocationData {
   coords: {
@@ -32,6 +33,48 @@ interface LocationTrackingResult {
   isLoading: boolean;
 }
 
+// Функция для получения пользовательского ID из Telegram mini app
+function getTelegramUserId(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const telegram = (window as any).Telegram.WebApp;
+    if (telegram && telegram.initDataUnsafe && telegram.initDataUnsafe.user) {
+      return telegram.initDataUnsafe.user.id.toString();
+    }
+    return null;
+  } catch (err) {
+    console.error('Ошибка при получении ID пользователя Telegram', err);
+    return null;
+  }
+}
+
+// Интерфейс для геолокации из API
+interface ApiLocationData {
+  userId: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  altitude?: number;
+  speed?: number;
+  timestamp: number;
+}
+
+// Преобразование геолокации из API в формат приложения
+function convertApiLocationToAppLocation(apiLocation: ApiLocationData): LocationData {
+  return {
+    coords: {
+      latitude: apiLocation.latitude,
+      longitude: apiLocation.longitude,
+      accuracy: apiLocation.accuracy || 0,
+      altitude: apiLocation.altitude || null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: apiLocation.speed || null
+    },
+    timestamp: apiLocation.timestamp
+  };
+}
+
 export function useLocationTracking(): LocationTrackingResult {
   const [error, setError] = useState<string | null>(null);
   const [isTracking, setIsTracking] = useState(false);
@@ -43,9 +86,10 @@ export function useLocationTracking(): LocationTrackingResult {
     distance: 0,
     duration: 0
   });
-  const watchId = useRef<number | null>(null);
+  const pollInterval = useRef<NodeJS.Timeout | null>(null);
   const startTime = useRef<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const userId = useRef<string | null>(null);
 
   // Вычисление расстояния между двумя точками
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -94,27 +138,99 @@ export function useLocationTracking(): LocationTrackingResult {
     }));
   };
 
+  // Получение геолокации из API
+  const fetchLocation = async () => {
+    if (!userId.current) {
+      setError('Не удалось определить ID пользователя Telegram');
+      return;
+    }
+
+    try {
+      const response = await axios.get(`/api/location/${userId.current}`);
+      if (response.data) {
+        const locationData = convertApiLocationToAppLocation(response.data);
+        setCurrentLocation(locationData);
+        setLocationHistory(prev => [...prev, locationData]);
+        updateStats(locationData);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Ошибка при получении геолокации', err);
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        // Если локация не найдена, не показываем ошибку
+        return;
+      }
+      setError('Ошибка при получении геолокации. Возможно, пользователь не отправлял свою геолокацию в бот.');
+    }
+  };
+
+  // Получение истории геолокации из API
+  const fetchLocationHistory = async () => {
+    if (!userId.current) {
+      return;
+    }
+
+    try {
+      const response = await axios.get(`/api/location/${userId.current}/history`);
+      if (response.data && Array.isArray(response.data)) {
+        const locationDataArray = response.data.map(convertApiLocationToAppLocation);
+        setLocationHistory(locationDataArray);
+        
+        if (locationDataArray.length > 0) {
+          setCurrentLocation(locationDataArray[locationDataArray.length - 1]);
+          // Обновляем статистику на основе полученной истории
+          let totalDistance = 0;
+          for (let i = 1; i < locationDataArray.length; i++) {
+            const prev = locationDataArray[i - 1];
+            const curr = locationDataArray[i];
+            totalDistance += calculateDistance(
+              prev.coords.latitude,
+              prev.coords.longitude,
+              curr.coords.latitude,
+              curr.coords.longitude
+            );
+          }
+          
+          // Обновляем только расстояние, остальные показатели обновятся автоматически
+          setStats(prev => ({
+            ...prev,
+            distance: totalDistance
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Ошибка при получении истории геолокации', err);
+    }
+  };
+
   const startTracking = async () => {
     try {
       setIsLoading(true);
-      const permissionResult = await navigator.permissions.query({ name: 'geolocation' });
       
-      if (permissionResult.state === 'granted') {
-        initializeTracking();
-      } else {
-        // Запрашиваем разрешение
-        navigator.geolocation.getCurrentPosition(
-          () => {
-            initializeTracking();
-          },
-          (error) => {
-            setError(`Геолокация недоступна: ${error.message}`);
-            setIsTracking(false);
-            setIsLoading(false);
-          },
-          { enableHighAccuracy: true }
-        );
+      // Получаем ID пользователя из Telegram mini app
+      userId.current = getTelegramUserId();
+      
+      if (!userId.current) {
+        setError('Не удалось определить ID пользователя Telegram. Убедитесь, что вы используете мини-приложение через Telegram.');
+        setIsTracking(false);
+        setIsLoading(false);
+        return;
       }
+      
+      startTime.current = Date.now();
+      
+      // Получаем историю геолокации
+      await fetchLocationHistory();
+      
+      // Начинаем регулярный опрос API
+      if (pollInterval.current) {
+        clearInterval(pollInterval.current);
+      }
+      
+      pollInterval.current = setInterval(fetchLocation, 3000); // Опрос каждые 3 секунды
+      setIsTracking(true);
+      setIsLoading(false);
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
       setIsTracking(false);
@@ -122,46 +238,10 @@ export function useLocationTracking(): LocationTrackingResult {
     }
   };
 
-  const initializeTracking = () => {
-    startTime.current = Date.now();
-    watchId.current = navigator.geolocation.watchPosition(
-      (position) => {
-        setIsLoading(false);
-        const locationData: LocationData = {
-          coords: {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            altitude: position.coords.altitude,
-            altitudeAccuracy: position.coords.altitudeAccuracy,
-            heading: position.coords.heading,
-            speed: position.coords.speed,
-          },
-          timestamp: position.timestamp,
-        };
-        setCurrentLocation(locationData);
-        setLocationHistory(prev => [...prev, locationData]);
-        updateStats(locationData);
-        setError(null);
-        setIsTracking(true);
-      },
-      (error) => {
-        setError(`Ошибка отслеживания: ${error.message}`);
-        setIsTracking(false);
-        setIsLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 10000
-      }
-    );
-  };
-
   const stopTracking = () => {
-    if (watchId.current !== null) {
-      navigator.geolocation.clearWatch(watchId.current);
-      watchId.current = null;
+    if (pollInterval.current) {
+      clearInterval(pollInterval.current);
+      pollInterval.current = null;
     }
     startTime.current = null;
     setIsTracking(false);
@@ -177,10 +257,11 @@ export function useLocationTracking(): LocationTrackingResult {
     });
   };
 
+  // Очистка при размонтировании компонента
   useEffect(() => {
     return () => {
-      if (watchId.current !== null) {
-        navigator.geolocation.clearWatch(watchId.current);
+      if (pollInterval.current) {
+        clearInterval(pollInterval.current);
       }
     };
   }, []);

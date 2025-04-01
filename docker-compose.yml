@@ -11,6 +11,19 @@ services:
       - /velospbot/node_modules # 'volume mount'
     command: npm run dev
 
+  tg-bot:
+    build:
+      ./tg-bot
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - ./tg-bot/.env
+    volumes:
+      - ./tg-bot:/tg-bot
+      - /tg-bot/node_modules
+    depends_on:
+      - velospbot
+
   nginx:
     image: nginx:latest
     ports:
